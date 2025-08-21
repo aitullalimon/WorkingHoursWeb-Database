@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Job Hours Calculator — v2 (fixed)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{ --bg:#0f172a; --panel:#111827; --card:#1f2937; --muted:#9ca3af; --accent:#22d3ee; --danger:#ef4444; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; background:linear-gradient(180deg,#0b1223,#0f172a 20%,#0b1223); color:#e5e7eb; font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+    .app{display:grid; grid-template-columns:280px 1fr; gap:16px; height:100%; padding:16px}
+    .panel{background:var(--panel); border:1px solid #1f2937; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .sidebar{padding:16px; display:flex; flex-direction:column}
+    .header{padding:16px 20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1f2937}
+    .title{font-size:20px; font-weight:700}
+    .badge{background:rgba(34,211,238,.1); color:var(--accent); padding:4px 10px; border-radius:999px; font-size:12px}
+    .card{background:var(--card); border:1px solid #374151; border-radius:16px; padding:16px; box-shadow:0 8px 20px rgba(0,0,0,.25)}
+    label{font-size:12px; color:var(--muted); display:block; margin-bottom:6px}
+    input, select{width:100%; background:#0b1223; color:#e5e7eb; border:1px solid #334155; border-radius:12px; padding:10px 12px; outline:none}
+    input:focus, select:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(34,211,238,.15)}
+    button{appearance:none; border:none; cursor:pointer; border-radius:12px; padding:10px 14px; font-weight:600}
+    .btn{background:linear-gradient(135deg,#22d3ee,#06b6d4); color:#03121a}
+    .btn-ghost{background:transparent; border:1px solid #334155; color:#e5e7eb}
+    .btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626); color:white}
+    .stack{display:grid; gap:10px}
+    .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    .spacer{height:10px}
+    .list{display:grid; gap:10px; max-height:40vh; overflow:auto; padding-right:6px}
+    .company-item{display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border:1px solid #334155; border-radius:12px}
+    .company-item.active{border-color:var(--accent); box-shadow:0 0 0 2px rgba(34,211,238,.15)}
+    .muted{color:var(--muted)}
+    .main{display:flex; flex-direction:column}
+    .toolbar{display:flex; gap:10px; padding:16px; align-items:center; border-bottom:1px solid #1f2937}
+    .grow{flex:1}
+    table{width:100%; border-collapse:separate; border-spacing:0; font-size:14px}
+    th, td{padding:12px 10px; text-align:left}
+    thead th{position:sticky; top:0; background:#0b1223; z-index:1; border-bottom:1px solid #374151}
+    tbody tr{background:rgba(255,255,255,.02)}
+    tbody tr + tr td{border-top:1px solid #1f2937}
+    tbody tr:hover{background:rgba(34,211,238,.04)}
+    .totals{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
+    .totals .card{display:flex; justify-content:space-between; align-items:center}
+    .chip{font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid #334155; background:#0b1223}
+    .footer{padding:10px 16px; border-top:1px solid #1f2937; display:flex; justify-content:space-between; align-items:center}
+    dialog{border:none; border-radius:16px; padding:0; background:var(--panel); color:#e5e7eb; width:min(640px,95vw)}
+    dialog::backdrop{background:rgba(2,6,23,.75)}
+    .dialog-head{display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid #1f2937}
+    .dialog-body{padding:16px}
+    @media (max-width: 900px){ .app{grid-template-columns:1fr} .sidebar{order:2} .main{order:1} .row{grid-template-columns:1fr} .totals{grid-template-columns:1fr 1fr} }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <div class="header">
+        <div class="title">Companies</div>
+        <span class="badge" id="companyCount">0</span>
+      </div>
+
+      <div class="spacer"></div>
+
+      <div class="stack card">
+        <!-- NEW: payment type + point rate (added, nothing removed) -->
+        <div class="row">
+          <div>
+            <label for="paymentType">Payment type</label>
+            <select id="paymentType">
+              <option value="hourly">Hourly</option>
+              <option value="point">Point</option>
+            </select>
+          </div>
+          <div>
+            <label for="pointRate">Point rate (¥/pt)</label>
+            <input id="pointRate" type="number" min="0" step="1" placeholder="e.g., 570" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="companyName">Company name</label>
+            <input id="companyName" placeholder="e.g., Kawanishi" />
+          </div>
+          <div>
+            <label for="hourlyRate">Hourly rate (¥)</label>
+            <input id="hourlyRate" type="number" min="0" step="0.01" placeholder="e.g., 1200" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="otThreshold">Overtime threshold (hrs/day)</label>
+            <input id="otThreshold" type="number" min="0" step="0.25" value="8" />
+          </div>
+          <div>
+            <label for="otMultiplier">OT multiplier</label>
+            <input id="otMultiplier" type="number" min="1" step="0.1" value="1.25" />
+          </div>
+        </div>
+        <button class="btn" id="addCompanyBtn">＋ Add company</button>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="list" id="companyList"></div>
+
+      <div class="spacer"></div>
+      <button id="exportAllBtn" class="btn-ghost">Export ALL data (JSON)</button>
+      <input id="importAllInput" type="file" accept="application/json" style="display:none" />
+      <button id="importAllBtn" class="btn-ghost" style="margin-top:8px">Import data (JSON)</button>
+      <button id="resetBtn" class="btn-danger" style="margin-top:8px">Factory reset</button>
+      <p class="muted" style="margin-top:8px; font-size:12px">Data is saved automatically in your browser (localStorage). No account needed.</p>
+    </aside>
+
+    <main class="panel main">
+      <div class="toolbar">
+        <select id="activeCompany" class="grow"></select>
+        <input id="monthPicker" type="month" />
+        <span class="muted" style="padding:0 6px">or</span>
+        <input id="startDate" type="date" title="Start date" />
+        <span class="muted">→</span>
+        <input id="endDate" type="date" title="End date" />
+        <button id="addEntryBtn" class="btn">＋ Add entry</button>
+        <button id="exportCsvBtn" class="btn-ghost">Export CSV</button>
+      </div>
+
+      <div class="stack" style="padding:16px">
+        <div class="totals">
+          <div class="card"><span>Regular hours</span><span class="chip" id="sumRegular">0.00</span></div>
+          <div class="card"><span>Overtime hours</span><span class="chip" id="sumOT">0.00</span></div>
+          <div class="card"><span>Total hours</span><span class="chip" id="sumHours">0.00</span></div>
+          <div class="card"><span>Pay (¥)</span><span class="chip" id="sumPay">0</span></div>
+        </div>
+
+        <div class="card" style="padding:0">
+          <div style="max-height:50vh; overflow:auto">
+            <table id="entriesTable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>In</th>
+                  <th>Out</th>
+                  <th>Break (min)</th>
+                  <th>Hours</th>
+                  <!-- NEW: Points column (added) -->
+                  <th>Pts</th>
+                  <th>Reg</th>
+                  <th>OT</th>
+                  <th>Transport (¥)</th>
+                  <th>Pay (¥)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="entriesBody"></tbody>
+            </table>
+          </div>
+          <div class="footer">
+            <span id="rowCount" class="muted">0 entries</span>
+            <div>
+              <button id="bulkDeleteBtn" class="btn-danger">Delete selected</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="entryDialog">
+    <div class="dialog-head">
+      <strong id="dialogTitle">Add entry</strong>
+      <button class="btn-ghost" id="closeDialogBtn">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="stack">
+        <div class="row">
+          <div>
+            <label for="entryDate">Date</label>
+            <input id="entryDate" type="date" />
+          </div>
+          <div>
+            <label for="entryBreak">Unpaid break (minutes)</label>
+            <input id="entryBreak" type="number" min="0" step="1" value="0" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="entryIn">Clock in</label>
+            <input id="entryIn" type="time" />
+          </div>
+          <div>
+            <label for="entryOut">Clock out</label>
+            <input id="entryOut" type="time" />
+          </div>
+        </div>
+        <div class="row">
+          <!-- NEW: points input (added) -->
+          <div>
+            <label for="entryPoints">Points</label>
+            <input id="entryPoints" type="number" min="0" step="1" value="0" />
+          </div>
+          <div>
+            <label for="entryTransport">Transport (¥)</label>
+            <input id="entryTransport" type="number" min="0" step="1" value="0" />
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; justify-content:flex-end">
+          <button class="btn-ghost" id="dialogCancel">Cancel</button>
+          <button class="btn" id="dialogSave">Save</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+    const fmt2 = (n) => (Math.round(n * 100) / 100).toFixed(2);
+    const todayISO = () => new Date().toISOString().slice(0,10);
+
+    function timeToMins(t){ if(!t) return null; const [h,m] = t.split(":").map(Number); return h*60 + m; }
+    function calcDurationMins(In, Out, breakMin){
+      const IN = timeToMins(In); const OUT = timeToMins(Out);
+      if(IN==null || OUT==null) return 0;
+      let dur = OUT - IN; if(dur < 0) dur += 24*60; // overnight
+      dur = Math.max(0, dur - (Number(breakMin)||0));
+      return dur;
+    }
+    function splitOvertime(hours, threshold){ const thr = Number(threshold)||0; const reg = Math.min(hours, thr); const ot = Math.max(0, hours - thr); return [reg, ot]; }
+
+    const STORE_KEY = 'jhc_data_v2_transport';
+    const state = { companies: [], entries: [], activeCompanyId: null };
+
+    function load(){
+      const raw = localStorage.getItem(STORE_KEY);
+      if(raw){ try{ Object.assign(state, JSON.parse(raw)); }catch(e){} }
+      if(!state.companies.length){
+        const cid = crypto.randomUUID();
+        state.companies.push({id: cid, name:'Example Co.', rate: 1200, otThreshold: 8, otMultiplier: 1.25, paymentType:'hourly'});
+        state.entries.push({id: crypto.randomUUID(), companyId: cid, date: todayISO(), in:'09:00', out:'18:00', breakMin:60, points:0, transport: 0});
+        state.activeCompanyId = cid; save();
+      }
+      if(!state.activeCompanyId){ state.activeCompanyId = state.companies[0]?.id || null; }
+    }
+    function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+
+    function renderCompanies(){
+      const list = $('#companyList'); list.innerHTML = '';
+      $('#companyCount').textContent = state.companies.length;
+      const active = state.activeCompanyId;
+      state.companies.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'company-item' + (c.id===active?' active':'');
+        // Subtitle matches payment type (hourly remains exactly as before)
+        const subtitle = c.paymentType==='point'
+          ? `¥${c.pointRate}/pt`
+          : `¥${c.rate}/h • OT>${c.otThreshold}h ×${c.otMultiplier}`;
+        div.innerHTML = `<div>
+            <div style="font-weight:600">${c.name}</div>
+            <div class="muted" style="font-size:12px">${subtitle}</div>
+          </div>
+          <div style="display:flex; gap:6px">
+            <button class="btn-ghost" data-act="select">Open</button>
+            <button class="btn-ghost" data-act="edit">Edit</button>
+            <button class="btn-danger" data-act="del">Delete</button>
+          </div>`;
+        div.querySelector('[data-act="select"]').onclick = ()=>{ state.activeCompanyId = c.id; save(); syncSelectors(); renderCompanies(); renderEntries(); };
+        div.querySelector('[data-act="edit"]').onclick = ()=>{
+          const name = prompt('Company name', c.name); if(name===null) return;
+          if((c.paymentType||'hourly')==='point'){
+            const p = Number(prompt('Point rate (¥/pt)', c.pointRate ?? 570));
+            if(!Number.isFinite(p)) return alert('Invalid point rate');
+            c.name=name; c.pointRate=p;
+          }else{
+            const rate = Number(prompt('Hourly rate (¥)', c.rate));
+            if(!Number.isFinite(rate)) return alert('Invalid rate');
+            const thr = Number(prompt('OT threshold (hrs/day)', c.otThreshold));
+            if(!Number.isFinite(thr)) return alert('Invalid threshold');
+            const mul = Number(prompt('OT multiplier', c.otMultiplier));
+            if(!Number.isFinite(mul)) return alert('Invalid multiplier');
+            c.name=name; c.rate=rate; c.otThreshold=thr; c.otMultiplier=mul;
+          }
+          save(); renderCompanies(); renderEntries(); syncSelectors();
+        };
+        div.querySelector('[data-act="del"]').onclick = ()=>{
+          if(!confirm(`Delete ${c.name}? This will also remove its entries.`)) return;
+          state.entries = state.entries.filter(e=>e.companyId!==c.id);
+          state.companies = state.companies.filter(x=>x.id!==c.id);
+          if(state.activeCompanyId===c.id){ state.activeCompanyId = state.companies[0]?.id || null; }
+          save(); renderCompanies(); renderEntries(); syncSelectors();
+        };
+        list.appendChild(div);
+      });
+    }
+
+    function syncSelectors(){
+      const sel = $('#activeCompany'); sel.innerHTML='';
+      state.companies.forEach(c=>{ const opt = document.createElement('option'); opt.value=c.id; opt.textContent=c.name; sel.appendChild(opt); });
+      if(state.activeCompanyId) sel.value = state.activeCompanyId;
+      const now = new Date(); if(!$('#monthPicker').value){ $('#monthPicker').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`; }
+      if(!$('#startDate').value || !$('#endDate').value){ const y = now.getFullYear(); const m = now.getMonth(); $('#startDate').value = new Date(y, m, 1).toISOString().slice(0,10); $('#endDate').value = new Date(y, m+1, 0).toISOString().slice(0,10); }
+    }
+
+    function renderEntries(){
+      const body = $('#entriesBody'); body.innerHTML='';
+      const month = $('#monthPicker').value; // yyyy-mm
+      const cid = state.activeCompanyId; if(!cid) return;
+      const company = state.companies.find(c=>c.id===cid);
+      const useRange = $('#startDate').value && $('#endDate').value;
+      const start = $('#startDate').value; const end = $('#endDate').value;
+      const rows = state.entries
+        .filter(e=>{ if(e.companyId!==cid) return false; if(useRange){ return (!start || e.date>=start) && (!end || e.date<=end); } return (!month || e.date.startsWith(month)); })
+        .sort((a,b)=> a.date.localeCompare(b.date));
+
+      let sumReg=0, sumOT=0, sumHours=0, sumPay=0;
+
+      for(const e of rows){
+        const rate = Number(e.rate ?? company.rate);
+        const thr = Number(e.otThreshold ?? company.otThreshold);
+        const mul = Number(e.otMultiplier ?? company.otMultiplier);
+        const durMin = calcDurationMins(e.in, e.out, e.breakMin);
+        const hours = durMin/60;
+        const [regH, otH] = splitOvertime(hours, thr);
+        const pts = Number(e.points||0);
+        const transport = Number(e.transport||0);
+
+        // NEW: pay supports point-based companies (else original hourly+OT)
+        const pay = (company.paymentType==='point' && Number.isFinite(company.pointRate))
+          ? (pts * Number(company.pointRate) + transport)
+          : (regH*rate + otH*rate*mul + transport);
+
+        sumReg += regH; sumOT += otH; sumHours += hours; sumPay += pay;
+
+        const tr = document.createElement('tr'); tr.dataset.id = e.id;
+        tr.innerHTML = `
+          <td>${e.date}</td>
+          <td data-field="in" title="Double‑click to quick edit">${e.in}</td>
+          <td data-field="out" title="Double‑click to quick edit">${e.out}</td>
+          <td data-field="break" title="Double‑click to quick edit">${e.breakMin||0}</td>
+          <td>${fmt2(hours)}</td>
+          <td data-field="points" title="Double‑click to quick edit">${pts}</td>
+          <td>${fmt2(regH)}</td>
+          <td>${fmt2(otH)}</td>
+          <td>${Math.round(transport).toLocaleString('ja-JP')}</td>
+          <td>${Math.round(pay).toLocaleString('ja-JP')}</td>
+          <td style="white-space:nowrap">
+            <input type="checkbox" data-id="${e.id}" class="rowSel" title="Select" />
+            <button class="btn-ghost" data-act="edit" data-id="${e.id}">Edit</button>
+            <button class="btn-danger" data-act="del" data-id="${e.id}">Del</button>
+          </td>`;
+        body.appendChild(tr);
+      }
+
+      $('#rowCount').textContent = `${rows.length} entries`;
+      $('#sumRegular').textContent = fmt2(sumReg);
+      $('#sumOT').textContent = fmt2(sumOT);
+      $('#sumHours').textContent = fmt2(sumHours);
+      $('#sumPay').textContent = Math.round(sumPay).toLocaleString('ja-JP');
+
+      $$('#entriesBody [data-act="edit"]').forEach(b=> b.onclick = ()=> openEntryDialog(b.dataset.id));
+      $$('#entriesBody [data-act="del"]').forEach(b=> b.onclick = ()=> deleteEntry(b.dataset.id));
+      $$('#entriesBody td[data-field="in"]').forEach(td=> td.ondblclick = ()=> quickEditField(td,'in'));
+      $$('#entriesBody td[data-field="out"]').forEach(td=> td.ondblclick = ()=> quickEditField(td,'out'));
+      $$('#entriesBody td[data-field="break"]').forEach(td=> td.ondblclick = ()=> quickEditField(td,'breakMin'));
+      $$('#entriesBody td[data-field="points"]').forEach(td=> td.ondblclick = ()=> quickEditField(td,'points'));
+    }
+
+    function quickEditField(td, field){
+      const id = td.parentElement.dataset.id; const e = state.entries.find(x=>x.id===id); if(!e) return;
+      const label = field==='breakMin' ? 'Break minutes'
+        : field==='in' ? 'Clock in (HH:MM)'
+        : field==='out' ? 'Clock out (HH:MM)'
+        : 'Points';
+      const input = prompt(label, String(e[field] ?? ''));
+      if(input===null) return;
+      if(field==='breakMin' || field==='points'){
+        const n = Number(input); if(!Number.isFinite(n) || n<0) return alert('Invalid number'); e[field] = n;
+      }else{ if(!/^\d{2}:\d{2}$/.test(input)) return alert('Use HH:MM'); e[field] = input; }
+      save(); renderEntries();
+    }
+
+    $('#addCompanyBtn').onclick = ()=>{
+      const type = $('#paymentType').value; // 'hourly' or 'point'
+      const name = $('#companyName').value.trim();
+      const rate = Number($('#hourlyRate').value);
+      const thr = Number($('#otThreshold').value||8);
+      const mul = Number($('#otMultiplier').value||1.25);
+      const pointRate = Number($('#pointRate').value);
+
+      if(!name) return alert('Enter company name');
+      if(type==='point'){
+        if(!Number.isFinite(pointRate)) return alert('Enter point rate');
+      }else{
+        if(!Number.isFinite(rate)) return alert('Enter hourly rate');
+      }
+
+      const id = crypto.randomUUID();
+      if(type==='point'){
+        state.companies.push({id, name, paymentType:'point', pointRate, rate, otThreshold:thr, otMultiplier:mul});
+      }else{
+        state.companies.push({id, name, paymentType:'hourly', rate, otThreshold:thr, otMultiplier:mul});
+      }
+      state.activeCompanyId = id;
+      $('#companyName').value=''; $('#hourlyRate').value=''; $('#pointRate').value='';
+      save(); syncSelectors(); renderCompanies(); renderEntries();
+    };
+
+    const dlg = $('#entryDialog');
+    const dlgFields = { date: $('#entryDate'), in: $('#entryIn'), out: $('#entryOut'), breakMin: $('#entryBreak'), points: $('#entryPoints'), transport: $('#entryTransport') };
+    let editingId = null;
+    function openEntryDialog(id=null){
+      editingId = id; $('#dialogTitle').textContent = id ? 'Edit entry' : 'Add entry';
+      if(id){ const e = state.entries.find(x=>x.id===id);
+        dlgFields.date.value = e.date; dlgFields.in.value = e.in; dlgFields.out.value = e.out; dlgFields.breakMin.value = e.breakMin||0; dlgFields.points.value = e.points||0; dlgFields.transport.value = e.transport||0;
+      }else{ dlgFields.date.value = todayISO(); dlgFields.in.value='09:00'; dlgFields.out.value='18:00'; dlgFields.breakMin.value=60; dlgFields.points.value=0; dlgFields.transport.value=0; }
+      dlg.showModal();
+    }
+    function closeDialog(){ dlg.close(); }
+    $('#addEntryBtn').onclick = ()=> openEntryDialog();
+    $('#closeDialogBtn').onclick = closeDialog; $('#dialogCancel').onclick = closeDialog;
+    $('#dialogSave').onclick = ()=>{
+      const date = dlgFields.date.value; const In = dlgFields.in.value; const Out = dlgFields.out.value; if(!date || !In || !Out) return alert('Please fill date, in and out');
+      const entry = { id: editingId || crypto.randomUUID(), companyId: state.activeCompanyId, date, in: In, out: Out, breakMin: Number(dlgFields.breakMin.value||0), points: Number(dlgFields.points.value||0), transport: Number(dlgFields.transport.value||0) };
+      if(editingId){ const idx = state.entries.findIndex(x=>x.id===editingId); state.entries[idx] = {...state.entries[idx], ...entry}; }
+      else{ state.entries.push(entry); }
+      save(); renderEntries(); closeDialog();
+    };
+
+    function deleteEntry(id){ if(!confirm('Delete this entry?')) return; state.entries = state.entries.filter(e=>e.id!==id); save(); renderEntries(); }
+    $('#bulkDeleteBtn').onclick = ()=>{ const ids = $$('#entriesBody .rowSel:checked').map(c=>c.dataset.id); if(!ids.length) return alert('No rows selected'); if(!confirm(`Delete ${ids.length} selected entr${ids.length>1?'ies':'y'}?`)) return; state.entries = state.entries.filter(e=> !ids.includes(e.id)); save(); renderEntries(); };
+
+    $('#activeCompany').onchange = (e)=>{ state.activeCompanyId = e.target.value; save(); renderCompanies(); renderEntries(); };
+    $('#monthPicker').onchange = ()=> renderEntries();
+    $('#startDate').onchange = ()=> renderEntries();
+    $('#endDate').onchange = ()=> renderEntries();
+
+    $('#exportCsvBtn').onclick = ()=>{
+      const cid = state.activeCompanyId; const company = state.companies.find(c=>c.id===cid);
+      const month = $('#monthPicker').value; const useRange = $('#startDate').value && $('#endDate').value; const start = $('#startDate').value; const end = $('#endDate').value;
+      const rows = state.entries.filter(e=> { if(e.companyId!==cid) return false; if(useRange){ return (!start || e.date>=start) && (!end || e.date<=end); } return (!month || e.date.startsWith(month)); }).sort((a,b)=> a.date.localeCompare(b.date));
+
+      const head = ['Date','In','Out','Break(min)','Hours','Points','Regular','OT','Transport(¥)','Pay(¥)'];
+      const lines = [head.join(',')];
+      rows.forEach(e=>{
+        const rate = Number(e.rate ?? company.rate);
+        const thr = Number(e.otThreshold ?? company.otThreshold);
+        const mul = Number(e.otMultiplier ?? company.otMultiplier);
+        const durMin = calcDurationMins(e.in, e.out, e.breakMin);
+        const hours = durMin/60;
+        const [regH, otH] = splitOvertime(hours, thr);
+        const pts = Number(e.points||0);
+        const transport = Number(e.transport||0);
+        const pay = (company.paymentType==='point' && Number.isFinite(company.pointRate))
+          ? (pts*Number(company.pointRate) + transport)
+          : (regH*rate + otH*rate*mul + transport);
+        const row = [e.date, e.in, e.out, e.breakMin||0, fmt2(hours), pts, fmt2(regH), fmt2(otH), Math.round(transport), Math.round(pay)];
+        lines.push(row.join(','));
+      });
+      const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); const fname = useRange ? `${company.name}-${start}_to_${end}.csv` : `${company.name}-${month||'all'}.csv`; a.download = fname; a.click();
+    };
+
+    $('#exportAllBtn').onclick = ()=>{ const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `job-hours-data.json`; a.click(); };
+    $('#importAllBtn').onclick = ()=> $('#importAllInput').click();
+    $('#importAllInput').addEventListener('change', (ev)=>{ const file = ev.target.files?.[0]; if(!file) return; const reader = new FileReader(); reader.onload = ()=>{ try{ const data = JSON.parse(reader.result); if(!data || !Array.isArray(data.companies) || !Array.isArray(data.entries)) throw new Error('Invalid format'); Object.assign(state, data); // backfill defaults
+          state.companies.forEach(c=>{ if(!('paymentType' in c)) c.paymentType='hourly'; if(c.paymentType==='point' && !('pointRate' in c)) c.pointRate=0; });
+          save(); syncSelectors(); renderCompanies(); renderEntries(); }catch(e){ alert('Import failed: '+e.message); } }; reader.readAsText(file); });
+
+    $('#resetBtn').onclick = ()=>{ if(!confirm('This will erase all companies and entries. Continue?')) return; localStorage.removeItem(STORE_KEY); location.reload(); };
+
+    load(); syncSelectors(); renderCompanies(); renderEntries();
+  </script>
+</body>
+</html>
